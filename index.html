@@ -15,7 +15,7 @@
 </script>
 <script>
     setTimeout(() => {
-        Object.keys(document).forEach(console.log)
+        Reflect.ownKeys(document).forEach(console.log)
     }, 1000)
 
     const createVideo = () => {
