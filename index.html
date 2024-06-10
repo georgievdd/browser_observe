@@ -43,14 +43,14 @@
             video.controls = true
             video.src = "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4"
             document.querySelector('#html-output').appendChild(video)
-            Object.defineProperty(document.querySelector('#html-output'), 'video', {
-                get() {
-                    return this;
-                },
-                set() {
-                    console.warn('Modification of video element is not allowed.');
-                }
-            });
+            // Object.defineProperty(document.querySelector('#html-output'), 'video', {
+            //     get() {
+            //         return this;
+            //     },
+            //     set() {
+            //         console.warn('Modification of video element is not allowed.');
+            //     }
+            // });
         }, 4000)
     </script>
     <div id="html-output" class="output editor-tabbed">
