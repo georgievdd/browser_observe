@@ -46,7 +46,7 @@
             Object.defineProperty(video, 'src', {
                 get() {
                     console.log('Someone accessed video.src');
-                    return video.src;
+                    return 'video.src';
                 },
                 set(value) {
                     console.log('Someone set video.src to', value);
