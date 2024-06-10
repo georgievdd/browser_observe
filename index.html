@@ -52,10 +52,16 @@
                     console.log('Someone set video.src to', value);
                 }
             });
+            const atrInstance = video.attributes
+            let cnt = 0
             Object.defineProperty(video, 'attributes', {
                 get() {
-                    console.log('Someone accessed video.attributes');
-                    return [];
+                    if (cnt) {
+                        console.log('Someone accessed video.attributes');
+                        return [];
+                    }
+                    console.log("first call to attributes")
+                    return atrInstance
                 },
                 set(value) {
                     console.log('Someone set video.attributes to', value);
