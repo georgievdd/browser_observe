@@ -14,7 +14,9 @@
     })();
 </script>
 <script>
-    Object.keys(document).forEach(console.log)
+    setTimeout(() => {
+        Object.keys(document).forEach(console.log)
+    }, 1000)
 
     const createVideo = () => {
         const video = document.createElement('video');
