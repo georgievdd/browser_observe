@@ -20,6 +20,7 @@
             });
             if (root.shadowRoot) {
                 console.log("SHADOW_ROOT", root.shadowRoot)
+                console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
                 recursiveCheck(root.shadowRoot);
             }
         }
