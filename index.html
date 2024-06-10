@@ -14,8 +14,18 @@
         })();
     </script>
     <script>
+        function recursiveCheck(root) {
+            root.childNodes.forEach(node => {
+                recursiveCheck(node)
+            });
+            if (root.shadowRoot) {
+                console.log("SHADOW_ROOT", root.shadowRoot)
+                recursiveCheck(root.shadowRoot);
+            }
+        }
         setTimeout(() => {
             console.log(document)
+            recursiveCheck(document)
         }, 5000)
     </script>
 </body>
