@@ -1,43 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
+<script>
+    (function () {
+        const script = document.createElement('script');
+        script.src="https://cdn.jsdelivr.net/npm/eruda";
+        document.body.append(script);
+        script.onload = function () { eruda.init(); }
+    })();
+</script>
+<script>
+    let observer
+    function recursiveCheck(root) {
+        root.childNodes.forEach(node => {
+            recursiveCheck(node)
+        });
+        if (root.shadowRoot) {
+            console.log("SHADOW_ROOT", root.shadowRoot)
+            console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
+            recursiveCheck(root.shadowRoot);
+        }
+    }
+    setTimeout(() => {
+        console.log(document.documentElement)
+        recursiveCheck(document)
+        observer = new MutationObserver((mutations, observer) => {
+            console.log("OBSERVER")
+            console.log(mutations)
+        })
+        observer.observe(document, {
+            attributes: true,
+            subtree: true,
+        })
+    }, 5000)
+</script>
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
 </head>
 
 <body>
-    <script>
-        (function () {
-            const script = document.createElement('script');
-            script.src="https://cdn.jsdelivr.net/npm/eruda";
-            document.body.append(script);
-            script.onload = function () { eruda.init(); }
-        })();
-    </script>
-    <script>
-        let observer
-        function recursiveCheck(root) {
-            root.childNodes.forEach(node => {
-                recursiveCheck(node)
-            });
-            if (root.shadowRoot) {
-                console.log("SHADOW_ROOT", root.shadowRoot)
-                console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
-                recursiveCheck(root.shadowRoot);
-            }
-        }
-        setTimeout(() => {
-            console.log(document.documentElement)
-            recursiveCheck(document)
-            observer = new MutationObserver((mutations, observer) => {
-                console.log("OBSERVER")
-                console.log(mutations)
-            })
-            observer.observe(document, {
-                attributes: true,
-                subtree: true,
-            })
-        }, 5000)
-    </script>
 </body>
 </html>
