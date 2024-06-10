@@ -35,25 +35,22 @@
         });
     }
 
-    window.document = createProxy(document);
-    document = createProxy(document)
-    let observer
-    // function recursiveCheck(root) {
-    //     root.childNodes.forEach(node => {
-    //         recursiveCheck(node)
-    //     });
-    //     if (root.shadowRoot) {
-    //         console.log("SHADOW_ROOT", root.shadowRoot)
-    //         console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
-    //         recursiveCheck(root.shadowRoot);
-    //     }
-    // }
+    // Creating a proxy for the document object
+    const documentProxy = createProxy(document);
+
+    // Redirecting global document references to the proxy
+    Object.defineProperty(window, 'document', {
+        get: function() {
+            return documentProxy;
+        }
+    });
 
     const createVideo = () => {
-        const video = document.createElement('video')
-        video.controls = true
-        video.src = "http://158.160.14.246:8000/big_buck_bunny_720p_surround.mp4"
-        document.querySelector('#html-output').appendChild(video)
+        const video = document.createElement('video');
+        video.controls = true;
+        video.src = "http://158.160.14.246:8000/big_buck_bunny_720p_surround.mp4";
+        document.querySelector('#html-output').appendChild(video);
+
         Object.defineProperty(video, 'src', {
             get() {
                 console.log('Someone accessed video.src');
@@ -63,35 +60,37 @@
                 console.log('Someone set video.src to', value);
             }
         });
-        const atrInstance = video.attributes
-        let cnt = 1 /// 0
+
+        const atrInstance = video.attributes;
+        let cnt = 1;
         Object.defineProperty(video, 'attributes', {
             get() {
                 if (cnt) {
                     console.log('Someone accessed video.attributes');
                     return [];
                 }
-                ++cnt
-                console.log("first call to attributes")
-                return atrInstance
+                ++cnt;
+                console.log("first call to attributes");
+                return atrInstance;
             },
             set(value) {
                 console.log('Someone set video.attributes to', value);
             }
         });
+
         Object.defineProperty(video, 'outerHTML', {
             get() {
                 console.log('Someone accessed video.outerHTML');
-                return ''
+                return '';
             },
         });
-    }
+    };
 
     setTimeout(() => {
         for (let i = 0; i < 1; ++i) {
-            createVideo()
+            createVideo();
         }
-    }, 4000)
+    }, 4000);
 </script>
 <div id="html-output" class="output editor-tabbed">
 </div>
