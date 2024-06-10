@@ -14,36 +14,32 @@
     })();
 </script>
 <script>
-    function createProxy(target) {
-        return new Proxy(target, {
-            get(obj, prop) {
-                console.log(`Accessed property ${prop}`);
-                const value = obj[prop];
-                if (typeof value === 'function') {
-                    return function (...args) {
-                        console.log(`Called method ${prop} with arguments:`, args);
-                        return value.apply(this, args);
-                    }
-                }
-                return value;
-            },
-            set(obj, prop, value) {
-                console.log(`Set property ${prop} to ${value}`);
-                obj[prop] = value;
-                return true;
-            }
-        });
-    }
-
-    // Creating a proxy for the document object
-    const documentProxy = createProxy(document);
-
-    // Redirecting global document references to the proxy
-    Object.defineProperty(window, 'document', {
-        get: function() {
-            return documentProxy;
-        }
-    });
+    // function createProxy(target) {
+    //     return new Proxy(target, {
+    //         get(obj, prop) {
+    //             console.log(`Accessed property ${prop}`);
+    //             const value = obj[prop];
+    //             if (typeof value === 'function') {
+    //                 return function (...args) {
+    //                     console.log(`Called method ${prop} with arguments:`, args);
+    //                     return value.apply(this, args);
+    //                 }
+    //             }
+    //             return value;
+    //         },
+    //         set(obj, prop, value) {
+    //             console.log(`Set property ${prop} to ${value}`);
+    //             obj[prop] = value;
+    //             return true;
+    //         }
+    //     });
+    // }
+    // const documentProxy = createProxy(document);
+    // Object.defineProperty(window, 'document', {
+    //     get: function() {
+    //         return documentProxy;
+    //     }
+    // });
 
     const createVideo = () => {
         const video = document.createElement('video');
