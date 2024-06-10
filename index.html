@@ -15,19 +15,19 @@
         })();
     </script>
     <script>
-        console.log("ci");
+        console.log("enifip3ufnbpi3urubn");
         function recursiveCheck(root) {
             root.childNodes.forEach(node => {
                 recursiveCheck(node)
             });
             if (root.shadowRoot) {
-                console.log("SHADOW_ROOT", root.shadowRoot)
-                console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
+                // console.log("SHADOW_ROOT", root.shadowRoot)
+                // console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
                 recursiveCheck(root.shadowRoot);
             }
         }
         setTimeout(() => {
-            console.log(document.documentElement)
+            // console.log(document.documentElement)
             recursiveCheck(document)
         }, 5000)
     </script>
