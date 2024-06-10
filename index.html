@@ -41,7 +41,7 @@
         const createVideo = () => {
             const video = document.createElement('video')
             video.controls = true
-            video.src = "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4"
+            video.src = "https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4"//https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4"
             document.querySelector('#html-output').appendChild(video)
             Object.defineProperty(video, 'src', {
                 get() {
@@ -54,7 +54,7 @@
             });
         }
         setTimeout(() => {
-            for (let i = 0; i < 5; ++i) {
+            for (let i = 0; i < 1; ++i) {
                 createVideo()
             }
         }, 4000)
