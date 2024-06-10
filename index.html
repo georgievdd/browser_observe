@@ -36,7 +36,7 @@
     }
 
     window.document = createProxy(document);
-
+    document = createProxy(document)
     let observer
     // function recursiveCheck(root) {
     //     root.childNodes.forEach(node => {
