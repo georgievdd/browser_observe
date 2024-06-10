@@ -8,7 +8,7 @@
 <body>
     <script>
         (function () {
-            var script = document.createElement('script');
+            const script = document.createElement('script');
             script.src="https://cdn.jsdelivr.net/npm/eruda";
             document.body.append(script);
             script.onload = function () { eruda.init(); }
@@ -20,14 +20,13 @@
                 recursiveCheck(node)
             });
             if (root.shadowRoot) {
-                // console.log("SHADOW_ROOT", root.shadowRoot)
-                // console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
+                console.log("SHADOW_ROOT", root.shadowRoot)
+                console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
                 recursiveCheck(root.shadowRoot);
             }
         }
         setTimeout(() => {
-            console.log("enifip3ufnbpi3urubn");
-            // console.log(document.documentElement)
+            console.log(document.documentElement)
             recursiveCheck(document)
         }, 5000)
     </script>
