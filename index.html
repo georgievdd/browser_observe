@@ -15,6 +15,7 @@
         })();
     </script>
     <script>
+        let observer
         function recursiveCheck(root) {
             root.childNodes.forEach(node => {
                 recursiveCheck(node)
@@ -28,6 +29,13 @@
         setTimeout(() => {
             console.log(document.documentElement)
             recursiveCheck(document)
+            observer = new MutationObserver((mutations, observer) => {
+                console.log(mutations)
+            })
+            observer.observe(document, {
+                attributes: true,
+                subtree: true,
+            })
         }, 5000)
     </script>
 </body>
