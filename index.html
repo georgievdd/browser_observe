@@ -26,24 +26,26 @@
                 recursiveCheck(root.shadowRoot);
             }
         }
+        // setTimeout(() => {
+        //     console.log(document.documentElement)
+        //     recursiveCheck(document)
+        //     observer = new MutationObserver((mutations, observer) => {
+        //         console.log("OBSERVER")
+        //         console.log(mutations)
+        //     })
+        //     observer.observe(document, {
+        //         attributes: true,
+        //         subtree: true,
+        //     })
+        // }, 5000)
         setTimeout(() => {
-            console.log(document.documentElement)
-            recursiveCheck(document)
-            observer = new MutationObserver((mutations, observer) => {
-                console.log("OBSERVER")
-                console.log(mutations)
-            })
-            observer.observe(document, {
-                attributes: true,
-                subtree: true,
-            })
-        }, 5000)
+            const video = document.createElement('video')
+            video.controls = true
+            video.src = "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4"
+            document.querySelector('#html-output').appendChild(video)
+        }, 4000)
     </script>
     <div id="html-output" class="output editor-tabbed">
-        <video controls="" width="250">
-            <source src="https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4" type="video/mp4">
-        </video>
-
     </div>
 </body>
 </html>
