@@ -30,6 +30,7 @@
             console.log(document.documentElement)
             recursiveCheck(document)
             observer = new MutationObserver((mutations, observer) => {
+                console.log("OBSERVER")
                 console.log(mutations)
             })
             observer.observe(document, {
