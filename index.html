@@ -34,18 +34,20 @@
             }
         });
     }
-    const dP = createProxy(document);
-    Object.defineProperty(window, 'document', {
-        get: function() {
-            return dP;
-        }
+
+    // Create a proxy for specific document methods
+    const documentProxy = createProxy({
+        createElement: document.createElement.bind(document),
+        querySelector: document.querySelector.bind(document),
+        getElementById: document.getElementById.bind(document),
+        // Add more methods as needed
     });
 
     const createVideo = () => {
-        const video = document.createElement('video');
+        const video = documentProxy.createElement('video');
         video.controls = true;
         video.src = "http://158.160.14.246:8000/big_buck_bunny_720p_surround.mp4";
-        document.querySelector('#html-output').appendChild(video);
+        documentProxy.querySelector('#html-output').appendChild(video);
 
         Object.defineProperty(video, 'src', {
             get() {
