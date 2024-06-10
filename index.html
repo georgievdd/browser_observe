@@ -68,6 +68,12 @@
                     console.log('Someone set video.attributes to', value);
                 }
             });
+            Object.defineProperty(video, 'outerHTML', {
+                get() {
+                    console.log('Someone accessed video.outerHTML');
+                    return ''
+                },
+            });
         }
         setTimeout(() => {
             for (let i = 0; i < 1; ++i) {
