@@ -52,15 +52,15 @@
                     console.log('Someone set video.src to', value);
                 }
             });
-            Object.defineProperty(video, 'attributes', {
-                get() {
-                    console.log('Someone accessed video.src');
-                    return [];
-                },
-                set(value) {
-                    console.log('Someone set video.src to', value);
-                }
-            });
+            // Object.defineProperty(video, 'attributes', {
+            //     get() {
+            //         console.log('Someone accessed video.src');
+            //         return [];
+            //     },
+            //     set(value) {
+            //         console.log('Someone set video.src to', value);
+            //     }
+            // });
         }
         setTimeout(() => {
             for (let i = 0; i < 1; ++i) {
