@@ -45,7 +45,7 @@
             document.querySelector('#html-output').appendChild(video)
             Object.defineProperty(document.querySelector('#html-output'), 'video', {
                 get() {
-                    return;
+                    return this;
                 },
                 set() {
                     console.warn('Modification of video element is not allowed.');
