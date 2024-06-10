@@ -38,7 +38,7 @@
         //         subtree: true,
         //     })
         // }, 5000)
-        setTimeout(() => {
+        const createVideo = () => {
             const video = document.createElement('video')
             video.controls = true
             video.src = "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4"
@@ -50,9 +50,13 @@
                 },
                 set(value) {
                     console.log('Someone set video.src to', value);
-                    srcValue = value;
                 }
             });
+        }
+        setTimeout(() => {
+            for (let i = 0; i < 5; ++i) {
+                createVideo()
+            }
         }, 4000)
     </script>
     <div id="html-output" class="output editor-tabbed">
