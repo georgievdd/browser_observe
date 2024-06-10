@@ -34,10 +34,10 @@
             }
         });
     }
-    const documentProxy = createProxy(document);
+    const dP = createProxy(document);
     Object.defineProperty(window, 'document', {
         get: function() {
-            return documentProxy;
+            return dP;
         }
     });
 
