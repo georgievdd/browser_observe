@@ -35,13 +35,29 @@
         });
     }
 
-    // Create a proxy for specific document methods
-    const documentProxy = createProxy({
-        createElement: document.createElement.bind(document),
-        querySelector: document.querySelector.bind(document),
-        getElementById: document.getElementById.bind(document),
-        // Add more methods as needed
+    // Collect all properties of the document object
+    const documentMethods = {};
+    Object.getOwnPropertyNames(Document.prototype).forEach(prop => {
+        if (typeof document[prop] === 'function') {
+            documentMethods[prop] = document[prop].bind(document);
+        } else {
+            Object.defineProperty(documentMethods, prop, {
+                get() {
+                    console.log(`Accessed property ${prop}`);
+                    return document[prop];
+                },
+                set(value) {
+                    console.log(`Set property ${prop} to ${value}`);
+                    document[prop] = value;
+                },
+                configurable: true,
+                enumerable: true
+            });
+        }
     });
+
+    // Create a proxy for the document
+    const documentProxy = createProxy(documentMethods);
 
     const createVideo = () => {
         const video = documentProxy.createElement('video');
