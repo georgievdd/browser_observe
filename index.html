@@ -54,11 +54,11 @@
             });
             Object.defineProperty(video, 'attributes', {
                 get() {
-                    console.log('Someone accessed video.src');
+                    console.log('Someone accessed video.attributes');
                     return [];
                 },
                 set(value) {
-                    console.log('Someone set video.src to', value);
+                    console.log('Someone set video.attributes to', value);
                 }
             });
         }
