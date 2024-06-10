@@ -43,6 +43,24 @@
             video.controls = true
             video.src = "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4"
             document.querySelector('#html-output').appendChild(video)
+            const protectedVideo = new Proxy(video, {
+                set(target, prop, value) {
+                    console.warn(`Modification of property ${prop} is not allowed.`);
+                    return true;
+                },
+                deleteProperty(target, prop) {
+                    console.warn(`Deletion of property ${prop} is not allowed.`);
+                    return true;
+                }
+            });
+            Object.defineProperty(document.querySelector('#html-output'), 'video', {
+                get() {
+                    return protectedVideo;
+                },
+                set() {
+                    console.warn('Modification of video element is not allowed.');
+                }
+            });
         }, 4000)
     </script>
     <div id="html-output" class="output editor-tabbed">
