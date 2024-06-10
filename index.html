@@ -4,84 +4,96 @@
     <meta charset="UTF-8">
     <title>Title1</title>
 </head>
-
 <body>
-    <script>
-        (function () {
-            const script = document.createElement('script');
-            script.src="https://cdn.jsdelivr.net/npm/eruda";
-            document.body.append(script);
-            script.onload = function () { eruda.init(); }
-        })();
-    </script>
-    <script>
-        let observer
-        function recursiveCheck(root) {
-            root.childNodes.forEach(node => {
-                recursiveCheck(node)
-            });
-            if (root.shadowRoot) {
-                console.log("SHADOW_ROOT", root.shadowRoot)
-                console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
-                recursiveCheck(root.shadowRoot);
-            }
-        }
-        // setTimeout(() => {
-        //     console.log(document.documentElement)
-        //     recursiveCheck(document)
-        //     observer = new MutationObserver((mutations, observer) => {
-        //         console.log("OBSERVER")
-        //         console.log(mutations)
-        //     })
-        //     observer.observe(document, {
-        //         attributes: true,
-        //         subtree: true,
-        //     })
-        // }, 5000)
-        const createVideo = () => {
-            const video = document.createElement('video')
-            video.controls = true
-            video.src = "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4"
-            document.querySelector('#html-output').appendChild(video)
-            Object.defineProperty(video, 'src', {
-                get() {
-                    console.log('Someone accessed video.src');
-                    return 'video.src';
-                },
-                set(value) {
-                    console.log('Someone set video.src to', value);
-                }
-            });
-            const atrInstance = video.attributes
-            let cnt = 1 // 0
-            Object.defineProperty(video, 'attributes', {
-                get() {
-                    if (cnt) {
-                        console.log('Someone accessed video.attributes');
-                        return [];
+<script>
+    (function () {
+        const script = document.createElement('script');
+        script.src = "https://cdn.jsdelivr.net/npm/eruda";
+        document.body.append(script);
+        script.onload = function () { eruda.init(); }
+    })();
+</script>
+<script>
+    function createProxy(target) {
+        return new Proxy(target, {
+            get(obj, prop) {
+                console.log(`Accessed property ${prop}`);
+                const value = obj[prop];
+                if (typeof value === 'function') {
+                    return function (...args) {
+                        console.log(`Called method ${prop} with arguments:`, args);
+                        return value.apply(this, args);
                     }
-                    ++cnt
-                    console.log("first call to attributes")
-                    return atrInstance
-                },
-                set(value) {
-                    console.log('Someone set video.attributes to', value);
                 }
-            });
-            Object.defineProperty(video, 'outerHTML', {
-                get() {
-                    console.log('Someone accessed video.outerHTML');
-                    return ''
-                },
-            });
-        }
-        setTimeout(() => {
-            for (let i = 0; i < 1; ++i) {
-                createVideo()
+                return value;
+            },
+            set(obj, prop, value) {
+                console.log(`Set property ${prop} to ${value}`);
+                obj[prop] = value;
+                return true;
             }
-        }, 4000)
-    </script>
-    <div id="html-output" class="output editor-tabbed">
-    </div>
+        });
+    }
+
+    window.document = createProxy(document);
+
+    let observer
+    // function recursiveCheck(root) {
+    //     root.childNodes.forEach(node => {
+    //         recursiveCheck(node)
+    //     });
+    //     if (root.shadowRoot) {
+    //         console.log("SHADOW_ROOT", root.shadowRoot)
+    //         console.log("SHADOW_ROOT", root.shadowRoot.innerHTML)
+    //         recursiveCheck(root.shadowRoot);
+    //     }
+    // }
+
+    const createVideo = () => {
+        const video = document.createElement('video')
+        video.controls = true
+        video.src = "https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4"
+        document.querySelector('#html-output').appendChild(video)
+        Object.defineProperty(video, 'src', {
+            get() {
+                console.log('Someone accessed video.src');
+                return 'video.src';
+            },
+            set(value) {
+                console.log('Someone set video.src to', value);
+            }
+        });
+        const atrInstance = video.attributes
+        let cnt = 1 // 0
+        Object.defineProperty(video, 'attributes', {
+            get() {
+                if (cnt) {
+                    console.log('Someone accessed video.attributes');
+                    return [];
+                }
+                ++cnt
+                console.log("first call to attributes")
+                return atrInstance
+            },
+            set(value) {
+                console.log('Someone set video.attributes to', value);
+            }
+        });
+        Object.defineProperty(video, 'outerHTML', {
+            get() {
+                console.log('Someone accessed video.outerHTML');
+                return ''
+            },
+        });
+    }
+
+    setTimeout(() => {
+        for (let i = 0; i < 1; ++i) {
+            createVideo()
+        }
+    }, 4000)
+</script>
+<div id="html-output" class="output editor-tabbed">
+</div>
 </body>
 </html>
