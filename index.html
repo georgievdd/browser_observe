@@ -13,57 +13,5 @@
         script.onload = function () { eruda.init(); }
     })();
 </script>
-<script>
-
-    const createVideo = () => {
-        const video = document.createElement('video');
-        video.controls = true;
-        video.src = "http://158.160.14.246:8000/ed_1024_512kb.mp4";
-        document.querySelector('#html-output').appendChild(video);
-
-        Object.defineProperty(video, 'src', {
-            get() {
-                console.log('Someone accessed video.src');
-                return 'video.src';
-            },
-            set(value) {
-                console.log('Someone set video.src to', value);
-            }
-        });
-
-        const atrInstance = video.attributes;
-        let cnt = 1;
-        Object.defineProperty(video, 'attributes', {
-            get() {
-                if (cnt) {
-                    console.log('Someone accessed video.attributes');
-                    return [];
-                }
-                ++cnt;
-                console.log("first call to attributes");
-                return atrInstance;
-            },
-            set(value) {
-                console.log('Someone set video.attributes to', value);
-            }
-        });
-
-        Object.defineProperty(video, 'outerHTML', {
-            get() {
-                console.log('Someone accessed video.outerHTML');
-                return '';
-            },
-        });
-    };
-
-    setTimeout(() => {
-        for (let i = 0; i < 1; ++i) {
-            createVideo();
-        }
-        document = null
-    }, 4000);
-</script>
-<div id="html-output" class="output editor-tabbed">
-</div>
 </body>
 </html>
