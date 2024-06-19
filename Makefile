@@ -4,4 +4,4 @@ run: push-changes connect-ssh pull-changes run-server
 push-changes:
 	git add . && git commit -m 'f' && git push
 connect-ssh:
-	ssh akaden@158.160.14.246
+	ssh akaden@51.250.26.130
