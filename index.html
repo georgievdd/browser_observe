@@ -346,6 +346,7 @@
                     return;
                 }
                 var sendBeaconPostAvailable = navigator.sendBeacon && Ya.RumMediaEnhancements.getSetting('beacon'), sendBeaconResult = sendBeaconPostAvailable && navigator.sendBeacon(clck, data);
+                console.log("data", data);
                 if (!sendBeaconResult) {
                     var xhr = new XMLHttpRequest();
                     xhr.open('POST', clck);
@@ -1497,6 +1498,7 @@
         }
         function extractOptionsFromEvent(event) {
             var _a, _b;
+            console.log(event);
             const options = event.data.options;
             (_b = (_a = window.yandex.mediaEnhancements) === null || _a === void 0 ? void 0 : _a.loggerFeatures) === null || _b === void 0 ? void 0 : _b.loggerInTop;
             if (event.source !== window && options.additional) {
@@ -1528,6 +1530,7 @@
         }
 
     }());
+    console.log('script injected')
 </script>
 <iframe width="720" height="405" src="https://rutube.ru/play/embed/100e1d3a2d9be22e37d20d71edf1627e" frameBorder="0" allow="clipboard-write; autoplay" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>
 <iframe width="720" height="405" src="https://rutube.ru/play/embed/11bbbec75a2ceb8cf446ad16813c6eec" frameBorder="0" allow="clipboard-write; autoplay" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>
