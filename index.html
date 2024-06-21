@@ -345,8 +345,8 @@
                 if (!clck) {
                     return;
                 }
+                console.log('data', data);
                 var sendBeaconPostAvailable = navigator.sendBeacon && Ya.RumMediaEnhancements.getSetting('beacon'), sendBeaconResult = sendBeaconPostAvailable && navigator.sendBeacon(clck, data);
-                console.log("data", data);
                 if (!sendBeaconResult) {
                     var xhr = new XMLHttpRequest();
                     xhr.open('POST', clck);
@@ -1485,6 +1485,7 @@
          * and uses RUM to store data.
          */
         window.addEventListener('message', handleMessage);
+        console.log('logger injected');
         function isLoggerMessageEvent(event) {
             if (typeof event !== 'object') {
                 return false;
@@ -1507,6 +1508,7 @@
             return options;
         }
         function handleMessage(event) {
+            console.log('main', event);
             if (!isLoggerMessageEvent(event)) {
                 return;
             }
@@ -1530,7 +1532,7 @@
         }
 
     }());
-    console.log('script injected')
+
 </script>
 <iframe width="720" height="405" src="https://rutube.ru/play/embed/100e1d3a2d9be22e37d20d71edf1627e" frameBorder="0" allow="clipboard-write; autoplay" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>
 <iframe width="720" height="405" src="https://rutube.ru/play/embed/11bbbec75a2ceb8cf446ad16813c6eec" frameBorder="0" allow="clipboard-write; autoplay" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>
