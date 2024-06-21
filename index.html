@@ -7,12 +7,1527 @@
 <body>
 <script>
     (function () {
-        const script = document.createElement('script');
+        'use strict';
 
-        script.src = "https://cdn.jsdelivr.net/npm/eruda";
-        document.body.append(script);
-        script.onload = function () { eruda.init(); }
-    })();
+        const logErrorDev = (error, ...args) => {
+            {
+                if ('additional' in error) {
+                    // eslint-disable-next-line no-console
+                    console.error('Error caught in development mode:', error, error.additional, args);
+                }
+                else {
+                    // eslint-disable-next-line no-console
+                    console.error('Error caught in development mode:', error, args);
+                }
+            }
+        };
+
+        function deserializeError(serializedError) {
+            try {
+                const deserializedError = JSON.parse(serializedError);
+                const error = new Error();
+                const keys = Object.getOwnPropertyNames(deserializedError);
+                for (const key of keys) {
+                    error[key] = deserializedError[key];
+                }
+                return error;
+            }
+            catch (e) {
+                const jsonParseError = e;
+                logErrorDev(jsonParseError);
+                jsonParseError.message = `Could not deserialize error: ${serializedError}`;
+                return jsonParseError;
+            }
+        }
+
+        var LoggerMethodName;
+        (function (LoggerMethodName) {
+            LoggerMethodName["LOG_ERROR"] = "ya-log-error";
+            LoggerMethodName["SEND_TIME_MARK"] = "ya-send-time-mark";
+            LoggerMethodName["TIME"] = "ya-time";
+            LoggerMethodName["TIME_END"] = "ya-time-end";
+            LoggerMethodName["SEND_RAF"] = "ya-send-raf";
+        })(LoggerMethodName || (LoggerMethodName = {}));
+
+        /**
+         * @file
+         * Интерфейс счётчиков скорости. Этот код должен быть помещён раньше элемента implementation.
+         *
+         * Код оптимизирован для минимального размера после uglify + gzip.
+         */
+        (function (window, undefined$1) {
+            window.Ya = window.Ya || {};
+            /**
+             * @typedef {number|string} BlockStatID – ключ из словаря https://stat.yandex-team.ru/DictionaryEditor/BlockStat
+             */
+            if (Ya.RumMediaEnhancements) {
+                return;
+            }
+            var perf = window.performance;
+            // eslint-disable-next-line no-implicit-coercion
+            var navStart = (perf && perf.timing && perf.timing.navigationStart) || Ya.startPageLoad || +new Date();
+            var requestAnimationFrame = window.requestAnimationFrame;
+            var rum = Ya.RumMediaEnhancements = {
+                // флаг для проверки работоспособности счетчика
+                // eslint-disable-next-line no-implicit-coercion
+                enabled: !!perf,
+                // Видимость документа в начале загрузки
+                vsStart: document.visibilityState,
+                // Менялась ли видимость документа document.visibilityState в процессе загрузки
+                vsChanged: false,
+                // список временных меток для дальнейшей отправки
+                _defTimes: [],
+                // список меток ресурсов для дальнейшей отправки
+                _defRes: [],
+                // список рассчитанных с помощью time()..timeEnd() дельт
+                _deltaMarks: {},
+                // список обработчиков, подписанных на срабатывание меток
+                _markListeners: {},
+                /**
+                 * Настройки RUM
+                 *
+                 * @typedef {Object} RUMSettings
+                 */
+                _settings: {},
+                /**
+                 * Произвольные параметры, пробрасываемые в логи.
+                 *
+                 * @typedef {Object<BlockStatID, String|BlockStatID>} Vars – Объект с параметрами
+                 * @example
+                 * {
+                 *     "143": "28.1786",
+                 *     "1042": "Example%20User%20Agent%201.0"
+                 * }
+                 */
+                _vars: {},
+                /**
+                 * Инициализация интерфейса.
+                 *
+                 * @param {RUMSettings} settings – Настройки RUM
+                 * @param {Vars} vars
+                 */
+                init: function (settings, vars) {
+                    rum._settings = settings;
+                    rum._vars = vars;
+                },
+                /**
+                 * Получить время от начала навигации.
+                 *
+                 * @returns {Number}
+                 */
+                getTime: (perf && perf.now) ? function () {
+                    return perf.now();
+                } : Date.now ? function () {
+                    return Date.now() - navStart;
+                } : function () {
+                    return new Date - navStart;
+                },
+                /**
+                 * Записывает время старта расчёта дельты.
+                 *
+                 * @param {String} counterId - Код BlockStat. ID метки времени
+                 */
+                time: function (counterId) {
+                    rum._deltaMarks[counterId] = [rum.getTime()];
+                },
+                /**
+                 * Записывает время окончания расчёта дельты.
+                 * При загрузке RUM implementation записанные метрики будут отправлены на бэкэнд.
+                 *
+                 * @param {String} counterId - Код BlockStat. ID метки времени
+                 * @param {Object} [params=null] - Кастомные параметры дельты. Сюда же можно передать инстанс подстраницы
+                 */
+                timeEnd: function (counterId, params) {
+                    var deltaMarks = rum._deltaMarks, deltaTimes = deltaMarks[counterId];
+                    if (!deltaTimes || deltaTimes.length === 0) {
+                        return;
+                    }
+                    deltaTimes.push(rum.getTime(), params);
+                },
+                /**
+                 * Отправить счетчик с временной меткой.
+                 *
+                 * @param {String} counterId  - Код BlockStat. ID метки времени
+                 * @param {Number} [time] - Время. Если не передано, вычисляется время
+                 *     от начала навигации до момента вызова функции
+                 * @param {Boolean} [addPerfMark=true] - Добавлять метку в User Timing или нет, true по умолчанию
+                 * @param {Object} [params=null] - Кастомные параметры счетчика. Сюда же можно передать инстанс подстраницы
+                 */
+                sendTimeMark: function (counterId, time, addPerfMark, params) {
+                    if (time === undefined$1) {
+                        time = rum.getTime();
+                    }
+                    rum._defTimes.push([counterId, time, params]);
+                    rum.mark(counterId, time);
+                },
+                /**
+                 * Отправить счетчик с дельтой времени.
+                 *
+                 * @param {String} counterId - Код BlockStat. ID метки времени
+                 * @param {Number} [delta] - Точное значение дельты
+                 * @param {Object} [params=null] - Кастомные параметры дельты. Сюда же можно передать инстанс подстраницы
+                 */
+                sendDelta: function (counterId, delta, params) {
+                    var deltaMarks = rum._deltaMarks;
+                    if (!deltaMarks[counterId] && typeof delta !== 'undefined') {
+                        var deltaEnd = rum.getTime();
+                        deltaMarks[counterId] = [deltaEnd - delta, deltaEnd, params];
+                    }
+                },
+                /**
+                 * Заглушка отправки временных меток ресурса,
+                 * откладывает отправку до загрузки основного кода.
+                 *
+                 * @param {String|Number} counterId
+                 * @param {String} url
+                 */
+                sendResTiming: function (counterId, url) {
+                    rum._defRes.push([counterId, url]);
+                },
+                /**
+                 * Отправить тайминги requestAnimationFrame.
+                 *
+                 * @param {String|Number} position – blockStat-код позиции счётчика, например 85 – p0
+                 */
+                sendRaf: function (position) {
+                    var forcePaintTimeSending = rum.getSetting('forcePaintTimeSending');
+                    if (!requestAnimationFrame || !forcePaintTimeSending && rum.isVisibilityChanged()) {
+                        return;
+                    }
+                    var prefix = '2616.' + position; // raf_metric.p0
+                    requestAnimationFrame(function () {
+                        if (!forcePaintTimeSending && rum.isVisibilityChanged()) {
+                            return;
+                        }
+                        if (rum.getSetting('sendFirstRaf')) {
+                            rum.sendTimeMark(prefix + '.205'); // raf_metric.p0.first
+                        }
+                        requestAnimationFrame(function () {
+                            if (!forcePaintTimeSending && rum.isVisibilityChanged()) {
+                                return;
+                            }
+                            rum.sendTimeMark(prefix + '.1928'); // raf_metric.p0.last
+                        });
+                    });
+                },
+                /**
+                 * Проверяет, изменялась ли видимость страницы при загрузке.
+                 *
+                 * @returns {Boolean}
+                 */
+                isVisibilityChanged: function () {
+                    return rum.vsStart && (rum.vsStart !== 'visible' || rum.vsChanged);
+                },
+                /**
+                 * Поставить метку времени в User Timing https://www.w3.org/TR/user-timing/#dom-performance-mark
+                 * В браузерах, не поддерживающих window.performance.mark(), заменяется ничего не делающей заглушкой.
+                 *
+                 * @param {String} name - Код BlockStat. ID метки времени
+                 * @param {Number} [time] - Время. Опционально, нужно для сверки со временем, которое ставит
+                 *     само User Timing API, или для меток, которые ставятся "задним числом" (ttfb, ttfp etc.)
+                 */
+                mark: perf && perf.mark ? function (name, time) {
+                    perf.mark(name + (time ? ': ' + time : ''));
+                } : function () {
+                    // заглушка
+                },
+                /**
+                 * Получить значение настройки.
+                 *
+                 * @param {String} settingName
+                 * @returns {*|String}
+                 */
+                getSetting: function (settingName) {
+                    var setting = rum._settings[settingName];
+                    return setting === null ? null : setting || '';
+                },
+                /**
+                 * Подписаться на срабатывание временной метки
+                 *
+                 * @param {String} counterId
+                 * @param {Function} cb
+                 */
+                on: function (counterId, cb) {
+                    if (typeof cb !== 'function')
+                        return;
+                    (rum._markListeners[counterId] = rum._markListeners[counterId] || []).push(cb);
+                },
+                /**
+                 * Отправить данные о трафике
+                 */
+                sendTrafficData: function () { },
+                /**
+                 * Отправить текущее значение CLS и начать считать заново
+                 */
+                finalizeLayoutShiftScore: function () { },
+                /**
+                 * Отправить текущее значение LCP и начать искать заново
+                 */
+                finalizeLargestContentfulPaint: function () { },
+                /**
+                 * Получить дополнительные параметры, которые будут залогированы вместе с LCP
+                 */
+                getLCPAdditionalParams: function () { }
+            };
+            // Отслеживаем изменения видимости вкладки
+            function onVisibilityChange() {
+                Ya.RumMediaEnhancements.vsChanged = true;
+                document.removeEventListener('visibilitychange', onVisibilityChange);
+            }
+            if (document.addEventListener) {
+                document.addEventListener('visibilitychange', onVisibilityChange);
+            }
+        })(window);
+
+        (function () {
+            /* eslint-disable @typescript-eslint/no-use-before-define */
+            /**
+             * @file
+             * Отправка запроса со счетчиками
+             */
+            /**
+             * Определено в Кликдемоне
+             *
+             * @type {Number}
+             */
+            var MAX_BATCH_COUNTERS = 42;
+            /**
+             * Интервал в миллисекундах, в течение которого счётчики склеиваются
+             *
+             * @type {Number}
+             */
+            var COUNTERS_BATCH_TIMEOUT = 15;
+            var countersBatchData = [];
+            var counterTimerId;
+            /**
+             * Отправка счётчика. Основной транспорт - sendBeacon, запасной - XMLHttpRequest. Быстро поступающие одиночные события
+             * накапливаются и отправляются пачками по MAX_BATCH_COUNTERS штук.
+             *
+             * Количество и порядок параметров соответствует счётчику СЕРПа
+             * window.wbt = function(link, path, vars, clck, tree, sts, counterParams)
+             *
+             * @param {*} link - не используется
+             * @param {String} path
+             * @param {String} vars
+             * @param {*} clck - не используется
+             * @param {*} tree - баобабные события https://wiki.yandex-team.ru/baobab/rfc/common/#sobytieclick
+             * @param {*} sts - не используется
+             * @param {Array} counterParams
+             */
+            Ya.RumMediaEnhancements.send = function (link, path, vars, clck, tree, sts, counterParams) {
+                clearTimeout(counterTimerId);
+                var slots = Ya.RumMediaEnhancements.getSetting('slots');
+                var experiments = Ya.RumMediaEnhancements.getSetting('experiments');
+                var counterSections = [
+                    // reqid добавляется на случай попадания в батч счётчиков из разных запросов – например, после аякса
+                    '/reqid=' + Ya.RumMediaEnhancements.getSetting('reqid'),
+                    counterParams ? '/' + counterParams.join('/') : '',
+                    path ? '/path=' + path : '',
+                    tree ? '/events=' + tree : '',
+                    slots ? '/slots=' + slots.join(';') : '',
+                    experiments ? '/experiments=' + experiments.join(';') : '',
+                    vars ? '/vars=' + vars : '',
+                    '/cts=' + new Date().getTime(),
+                    '/*'
+                ];
+                countersBatchData.push(counterSections.join(''));
+                if (countersBatchData.length < MAX_BATCH_COUNTERS) {
+                    counterTimerId = setTimeout(sendBatchRequest, COUNTERS_BATCH_TIMEOUT);
+                }
+                else {
+                    sendBatchRequest();
+                }
+            };
+            function sendBatchRequest() {
+                var clck = Ya.RumMediaEnhancements.getSetting('clck'), data = countersBatchData.join('\r\n');
+                countersBatchData = [];
+                counterTimerId = null;
+                if (!clck) {
+                    return;
+                }
+                var sendBeaconPostAvailable = navigator.sendBeacon && Ya.RumMediaEnhancements.getSetting('beacon'), sendBeaconResult = sendBeaconPostAvailable && navigator.sendBeacon(clck, data);
+                if (!sendBeaconResult) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', clck);
+                    xhr.send(data);
+                }
+            }
+        }());
+
+        const baseString = 'xxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
+        function generateUuidV4() {
+            return baseString.replace(/[xy]/g, (match, position) => {
+                let result;
+                if (match === 'x') {
+                    result = Math.random() * 16 | 0;
+                }
+                else {
+                    result = position & 0x3 | 0x8;
+                }
+                return result.toString(16);
+            });
+        }
+
+        const PLATFORM = 'touch';
+
+        Ya.RumMediaEnhancements.init({
+            beacon: true,
+            clck: 'https://yandex.ru/clck/click',
+            reqid: generateUuidV4(),
+        }, {
+            'region': '213',
+            'rum_id': 'ru.video-translation-scripts',
+            '-project': 'video-translation-scripts',
+            '-page': location.pathname,
+            '-version': "1.49.0.0" ,
+            '-env': "development" ,
+            '-platform': PLATFORM,
+        });
+
+        (function(window) {
+            if (!(window.Ya && Ya.RumMediaEnhancements)) {
+                throw new Error('RumMediaEnhancements: interface is not defined');
+            }
+
+            var rum = Ya.RumMediaEnhancements;
+
+            rum.getSetting = function(settingName) {
+                var setting = rum._settings[settingName];
+
+                return setting === null ? null : setting || '';
+            };
+        })(typeof self !== 'undefined' ? self : window);
+
+        (function(rum) {
+            // Вместе с ошибкой передается ее идетнификатор в этом списке, чтобы можно было ее распознать
+            var filters = {
+                url: {
+                    // Ошибки API расширений браузеров.
+                    '0': /(miscellaneous|extension)_bindings/,
+
+                    // Ошибки из внутренних элементов браузера Chrome.
+                    '1': /^chrome:/,
+
+                    // Ошибки из расширения Kaspersky Protection.
+                    '2': /kaspersky-labs\.com\//,
+
+                    // Ошибки из расширений браузеров
+                    '3': /^(?:moz|chrome|safari)-extension:\/\//,
+
+                    // Ошибки из пользовательских файлов.
+                    '4': /^file:/,
+
+                    // Ошибки в подгружаемых ресурсах (типа дополнительных скриптов расширений или Java-апплетов в Firefox)
+                    '5': /^resource:\/\//,
+
+                    // Ошибки в сеошном расширении https://nda.ya.ru/3UVNQe
+                    '6': /webnetc\.top/,
+
+                    // Ошибки AdGuard
+                    '7': /local\.adguard\.com/
+                },
+                message: {
+                    // Ошибки AdGuard.
+                    '0': /__adgRemoveDirect/,
+
+                    // Ошибки в CSP.
+                    '1': /Content Security Policy/,
+
+                    // Ошибки vid_mate_check is not defined
+                    '2': /vid_mate_check/,
+
+                    // Ошибки UC Browser.
+                    '3': /ucapi/,
+
+                    // Ошибки при обращении к элементам айфреймов в IE
+                    '4': /Access is denied/i,
+
+                    // Ошибки при обращении к элементам айфреймов
+                    '5': /^Uncaught SecurityError/i,
+
+                    // Ошибки Can't find variable: __ybro
+                    '6': /__ybro/,
+
+                    // Ошибки ReferenceError: __show__deepen is not defined
+                    '7': /__show__deepen/,
+
+                    // ntp is not defined
+                    '8': /ntp is not defined/,
+
+                    // Cannot set property 'install' of undefined
+                    '9': /Cannot set property 'install' of undefined/,
+
+                    // Внутренние ошибки файерфокса
+                    '10': /NS_ERROR/,
+
+                    // Ошибка загрузки скриптов по какой-либо причине (сетевые проблемы?)
+                    '11': /Error loading script/,
+
+                    // TypeError: undefined is not a function
+                    '12': /^TypeError: undefined is not a function$/,
+
+                    // https://st.yandex-team.ru/SERP-78992
+                    // ошибка Firefox/iOS 8,9,10 https://bugzilla.mozilla.org/show_bug.cgi?id=1394296
+                    '13': /__firefox__\.(?:favicons|metadata|reader|searchQueryForField|searchLoginField)/
+                },
+                stack: {
+                    // Ошибки из расширений браузеров
+                    '0': /(?:moz|chrome|safari)-extension:\/\//,
+                    // ошибки AdGuard в тех браузерах, которые показывают файлы расширений в стеке
+                    '1': /adguard.*\.user\.js/i
+                }
+            };
+
+            /**
+             * Проверяет, что ошибка из внешнего источника.
+             *
+             * @param {string} url
+             * @param {string} message
+             * @param {string} stack
+             * @returns {Boolean}
+             */
+            function isExternalError(url, message, stack) {
+                var customFilters = rum._errorSettings.filters || {};
+
+                var currErrorPlaces = {
+                    url: (url || '') + '',
+                    message: (message || '') + '',
+                    stack: (stack || '') + ''
+                };
+
+                var commonFiltersStrs = collectExternalErrorInner(currErrorPlaces, filters);
+                var customFiltersStrs = collectExternalErrorInner(currErrorPlaces, customFilters);
+
+                return {
+                    common: commonFiltersStrs,
+                    custom: customFiltersStrs,
+                    hasExternal: !!(commonFiltersStrs || customFiltersStrs)
+                };
+            }
+
+            /**
+             * Проверяет, сматчилась ли ошибка и дополняет результат
+             *
+             * @param {string} str
+             * @param {Object} errorItems
+             * @return {String} result
+             */
+            function checkExternalErrorInner(str, errorItems) {
+                if (!str || !errorItems) {
+                    return;
+                }
+
+                var result = [];
+
+                for (var errorId in errorItems) {
+                    if (errorItems.hasOwnProperty(errorId)) {
+                        var regexp = errorItems[errorId];
+                        if (typeof regexp === 'string') {
+                            regexp = new RegExp(regexp);
+                        }
+
+                        if (regexp instanceof RegExp && regexp.test(str)) {
+                            result.push(errorId);
+                        }
+                    }
+                }
+
+                return result.join('_');
+            }
+
+            /**
+             * Собирает информацию об ошибках
+             *
+             * @param {Object} currErrorPlaces
+             * @param {Object} errorItems
+             * @return {String} filtersStrs
+             */
+            function collectExternalErrorInner(currErrorPlaces, errorItems) {
+                var filtersStrs = [];
+                var strs;
+
+                for (var errorPlace in filters) {
+                    if (filters.hasOwnProperty(errorPlace)) {
+                        strs = checkExternalErrorInner(currErrorPlaces[errorPlace], errorItems[errorPlace]);
+
+                        if (strs) {
+                            filtersStrs.push(errorPlace + '~' +  strs);
+                        }
+                    }
+                }
+
+                return filtersStrs.join(';');
+            }
+
+            rum._isExternalError = isExternalError;
+        })(Ya.RumMediaEnhancements);
+
+        (function(window, rum) {
+            var PATH_CLIENT_ERROR = '690.2354'; // tech.client_error
+            var PATH_UNCAUGHT_ERROR = '690.2361'; // tech.uncaught_error
+            var PATH_EXTERNAL_ERROR = '690.2854'; // tech.external_error
+            var PATH_SCRIPT_ERROR = '690.2609'; // tech.script_error
+
+            var LIMIT_CLIENT_ERROR = 1000;
+            var LIMIT_UNCAUGHT_ERROR = 100;
+            var LIMIT_EXTERNAL_ERROR = 100;
+            var LIMIT_SCRIPT_ERROR = 100;
+
+            var SILENT_LIMIT_CLIENT_ERROR = 100;
+            var SILENT_LIMIT_UNCAUGHT_ERROR = 10;
+            var SILENT_LIMIT_EXTERNAL_ERROR = 10;
+            var SILENT_LIMIT_SCRIPT_ERROR = 10;
+
+            var types = {
+                // type: [path, limit, silentLimit, sent]
+                client: [PATH_CLIENT_ERROR, LIMIT_CLIENT_ERROR, SILENT_LIMIT_CLIENT_ERROR, 0],
+                uncaught: [PATH_UNCAUGHT_ERROR, LIMIT_UNCAUGHT_ERROR, SILENT_LIMIT_UNCAUGHT_ERROR, 0],
+                external: [PATH_EXTERNAL_ERROR, LIMIT_EXTERNAL_ERROR, SILENT_LIMIT_EXTERNAL_ERROR, 0],
+                script: [PATH_SCRIPT_ERROR, LIMIT_SCRIPT_ERROR, SILENT_LIMIT_SCRIPT_ERROR, 0]
+            };
+
+            var pending = {};
+
+            rum.ERROR_LEVEL = {
+                INFO: 'info',
+                DEBUG: 'debug',
+                WARN: 'warn',
+                ERROR: 'error',
+                FATAL: 'fatal'
+            };
+
+            // можно переопределить при инициализации
+            rum._errorSettings = {
+                clck: 'https://yandex.ru/clck/click',
+                beacon: true,
+                project: 'unknown',
+                page: '',
+                env: '',
+                experiments: [],
+                additional: {},
+                platform: '',
+                // регион из геобазы
+                region: '',
+                dc: '',
+                host: '',
+                service: '',
+                level: '',
+                version: '',
+                yandexuid: '',
+                loggedin: false,
+                coordinates_gp: '',
+                referrer: true,
+                preventError: false,
+                unhandledRejection: false,
+                traceUnhandledRejection: false,
+                uncaughtException: true,
+                debug: false,
+                limits: {},
+                silent: {},
+                filters: {},
+                pageMaxAge: 10/*day*/ * 24/*hours*/ * 60/*minutes*/ * 60/*seconds*/ * 1000 /*ms*/,
+                initTimestamp: +new Date()
+            };
+
+            var inited = false;
+
+            /**
+             * Инициализация параметров для отправки ошибок
+             *
+             * @param {Object} settings
+             */
+            rum.initErrors = function(settings) {
+                var errorSettings = objectExtend(rum._errorSettings, settings);
+                if (inited) {
+                    return;
+                }
+
+                if (errorSettings.uncaughtException) {
+                    subscribe();
+                }
+                if (errorSettings.unhandledRejection && errorSettings.traceUnhandledRejection && rum._traceUnhandledRejection) {
+                    rum._traceUnhandledRejection();
+                }
+
+                inited = true;
+            };
+
+            /**
+             * Изменение параметров для отправки ошибок
+             *
+             * @param {Object} settings
+             */
+            rum.updateErrors = function(settings) {
+                objectExtend(rum._errorSettings, settings);
+            };
+
+            /**
+             * Shallow merge additional
+             *
+             * @param {Object} additional
+             */
+            rum.updateAdditional = function(additional) {
+                rum._errorSettings.additional = objectExtend(rum._errorSettings.additional || {}, additional);
+            };
+
+            /**
+             * Обрабатывает ошибку и отправляет счётчик.
+             * В случае режима отладки, выводит отладочную информацию в консоль браузера.
+             *
+             * @param {Error} event
+             * @param {Boolean} isCustom
+             * @param {Object} settingsFromError
+             */
+            rum._handleError = function(event, isCustom, settingsFromError) {
+                var settings = rum._errorSettings;
+
+                if (settings.preventError && event.preventDefault) {
+                    event.preventDefault();
+                }
+
+                var error, errorType;
+
+                if (!isCustom) {
+                    error = rum._normalizeError(event);
+                    errorType = error.type;
+
+                    var onError = settings.onError;
+                    if (typeof onError === 'function') {
+                        onError(error);
+                    }
+
+                    var transform = settings.transform;
+                    if (typeof transform === 'function') {
+                        error = transform(error);
+                    }
+                    if (!error) {
+                        return;
+                    }
+                    if (error.settings) {
+                        settingsFromError = error.settings;
+                    }
+                } else {
+                    error = event;
+                    errorType = 'client';
+                }
+                var currentTimestamp = +new Date();
+                var initTimestamp = settings.initTimestamp;
+                var pageMaxAge = settings.pageMaxAge;
+                if (pageMaxAge !== -1 && initTimestamp && initTimestamp + pageMaxAge < currentTimestamp) {
+                    return;
+                }
+
+                var limit = types[errorType][1];
+                if (typeof settings.limits[errorType] === 'number') {
+                    limit = settings.limits[errorType];
+                }
+                var silentLimit = types[errorType][2];
+                if (typeof settings.silent[errorType] === 'number') {
+                    silentLimit = settings.silent[errorType];
+                }
+
+                var sent = types[errorType][3];
+                if (sent < limit || limit === -1) {
+                    error.path = types[errorType][0];
+
+                    /* В первой итерации решили писать как есть
+                    if (error.stack) {
+                        // Убираем первую строку - обычно она равна msg.
+                        // Вырезаем yastatic.net чтобы сэкономить место в логах
+                        error.stack = error.stack
+                            .split('\n').slice(1, 7).join('; ')
+                            .replace(/\s+/g, ' ')
+                            .replace(/https:\/\/([^.]+\.)?yastatic.net/, '$1');
+                    }
+                    */
+
+                    var sendData = rum._getErrorData(error, {
+                        silent: sent < silentLimit || silentLimit === -1 ? 'no' : 'yes',
+                        isCustom: Boolean(isCustom)
+                    }, objectExtend(objectExtend({}, settings), settingsFromError));
+
+                    var send = function(sendData) {
+                        pending[error.message] = false;
+
+                        rum._sendError(sendData.path, sendData.vars);
+
+                        types[errorType][3]++;
+                    }.bind(this, sendData);
+
+                    if (typeof settings.throttleSend === 'undefined') {
+                        send();
+                    } else {
+                        if (pending[error.message]) {
+                            return;
+                        }
+
+                        pending[error.message] = true;
+
+                        setTimeout(send, settings.throttleSend);
+                    }
+                }
+            };
+
+
+            /**
+             *
+             * @param {Object} settings
+             *
+             * return {String}
+             */
+            rum._getReferrer = function(settings) {
+                var settingsReferrer = settings.referrer;
+                var typeOfSettingsReferrer = typeof settingsReferrer;
+
+                if (typeOfSettingsReferrer === 'function') {
+                    return settingsReferrer();
+                }
+
+                if (typeOfSettingsReferrer === 'string' && settingsReferrer) {
+                    return settingsReferrer;
+                }
+
+                if (settingsReferrer === false) {
+                    return undefined;
+                }
+
+                return window.location ? window.location.href : undefined;
+            };
+
+            /**
+             *
+             * @param {String} settings
+             *
+             * return {String|Number|Function}
+             */
+            rum.getErrorSetting = function(key) {
+                return rum._errorSettings[key];
+            };
+
+            /**
+             * Преобразует масссив экспериментов в строку
+             *
+             * @param {Array} settingsExperiments
+             * @returns {String}
+             */
+            rum._buildExperiments = function(settingsExperiments) {
+                return settingsExperiments instanceof Array ? settingsExperiments.join(';') : '';
+            };
+
+            /**
+             * Преобразует два объекта additional в строку
+             *
+             * @param {Object} settingsAdditional
+             * @param {Object} paramsAdditional
+             * @returns {String}
+             */
+            rum._buildAdditional = function(settingsAdditional, paramsAdditional) {
+                var additional = '';
+                try {
+                    var additionalObject = objectExtend(objectExtend({}, settingsAdditional), paramsAdditional);
+                    if (Object.keys(additionalObject).length !== 0) {
+                        additional = JSON.stringify(additionalObject);
+                    }
+                } catch (e) {/*empty catch*/}
+
+                return additional;
+            };
+
+            /**
+             * Формирует данные для отправки
+             *
+             * @param {LogErrors~Error} err
+             * @param {Object} params
+             * @param {Object} settings
+             */
+            rum._getErrorData = function (err, params, settings) {
+                params = params || {};
+                var experiments = rum._buildExperiments(settings.experiments);
+                var additional = rum._buildAdditional(settings.additional, err.additional);
+                var vars = {
+                    // генерится браузером
+                    '-stack': err.stack,
+                    '-url': err.file,
+                    '-line': err.line,
+                    '-col': err.col,
+
+                    // блок, в котором произошла ошибка
+                    '-block': err.block,
+
+                    // метод, в котором произошла ошибка
+                    '-method': err.method,
+
+                    // заполняется в событии браузера или передается вручную
+                    '-msg': err.message,
+
+                    // окружение
+                    '-env': settings.env,
+
+                    // вспомогательные поля для понимания типа внешних ошибок
+                    '-external': err.external,
+                    '-externalCustom': err.externalCustom,
+
+                    // принадлежность к сервису
+                    '-project': settings.project,
+                    '-service': err.service || settings.service,
+                    '-page': err.page || settings.page,
+
+                    // платформа
+                    '-platform': settings.platform,
+
+                    // критичность
+                    '-level': err.level,
+
+                    // эксперименты
+                    '-experiments': experiments,
+
+                    // версия статики
+                    '-version': settings.version,
+
+                    // регион
+                    '-region': settings.region,
+
+                    // датацентр
+                    '-dc': settings.dc,
+
+                    // имя хоста
+                    '-host': settings.host,
+
+                    // id пользователя
+                    '-yandexuid': settings.yandexuid,
+
+                    // залогинен ли пользователь
+                    '-loggedin': settings.loggedin,
+
+                    // кука с кооординатами
+                    '-coordinates_gp': err.coordinates_gp || settings.coordinates_gp,
+
+                    '-referrer': rum._getReferrer(settings),
+
+                    // источник ошибки
+                    '-source': err.source,
+
+                    // метод/ручка источника ошибки
+                    '-sourceMethod': err.sourceMethod,
+
+                    // тип ошибки
+                    // logic, render, network, ...
+                    '-type': params.isCustom ? err.type : '',
+
+                    // хэш с дополнительными параметрами
+                    '-additional': additional,
+
+                    // наличие блокировщиков рекламы
+                    '-adb': castBlocker(Ya.blocker) || castBlocker(settings.blocker),
+
+                    // CDN из https://yastatic.net/nearest.js
+                    '-cdn': window.YaStaticRegion,
+
+                    // ua - попробуем брать из кук
+                    '-ua': navigator.userAgent,
+
+                    // если кол-во ошибок от 1 пользователя слишком большое, тогда отсылаем признак,
+                    // чтобы отфильтровывать эти ошибки в Голован
+                    '-silent': params.silent,
+
+                    // клиентское время ошибки
+                    '-ts': +new Date(),
+                    '-init-ts': settings.initTimestamp,
+                };
+
+                if (settings.debug && window.console) {
+                    // eslint-disable-next-line no-console
+                    console[console[err.level] ? err.level : 'error']('[error-counter] ' + err.message, vars, err.stack);
+                }
+
+                return {
+                    path: err.path,
+                    vars: vars
+                };
+            };
+
+            /**
+             *
+             *
+             * @param target {Object}
+             * @param object {Object}
+             * @return {Object}
+             */
+            function objectExtend(target, object) {
+                for (var name in object) {
+                    if (object.hasOwnProperty(name)) {
+                        target[name] = object[name];
+                    }
+                }
+
+                return target;
+            }
+
+            /**
+             * Приводит ошибки к общему виду.
+             *
+             * @param {Error} err
+             * @returns {Object}
+             */
+            rum._baseNormalizeError = function (err) {
+                err = err || {};
+                var error = err.error;
+                var file = err.filename || err.fileName || '';
+                var stack = (error && error.stack) || err.stack || '';
+                var message = err.message || '';
+                var additional = (error && error.additional) || err.additional;
+
+                return {
+                    file: file,
+                    line: err.lineno || err.lineNumber,
+                    col: err.colno || err.colNumber,
+                    stack: stack,
+                    message: message,
+                    additional: additional
+                };
+            };
+
+            /**
+             * Приводит ошибки к общему виду c type & external.
+             *
+             * @param {Error} err
+             * @returns {Object}
+             */
+            rum._normalizeError = function (err) {
+                var error = rum._baseNormalizeError(err);
+                var type = 'uncaught';
+                var externalParams = rum._isExternalError(error.file, error.message, error.stack);
+                var externalParamsCommon = '';
+                var externalParamsCustom = '';
+
+                if (externalParams.hasExternal) {
+                    type = 'external';
+
+                    externalParamsCommon = externalParams.common;
+                    externalParamsCustom = externalParams.custom;
+                } else if (/^Script error\.?$/.test(error.message)) {
+                    type = 'script';
+                }
+
+                error.external = externalParamsCommon;
+                error.externalCustom = externalParamsCustom;
+                error.type = type;
+
+                return error;
+            };
+
+            /**
+             * Преобразует объект c vars в строку.
+             *
+             * @param {Object} vars
+             * @returns {String}
+             */
+            rum._createVarsString = function(vars) {
+                var varsArr = [];
+
+                for (var key in vars) {
+                    if (vars.hasOwnProperty(key) && (vars[key] || vars[key] === 0)) {
+                        varsArr.push(key + '=' + encodeURIComponent(vars[key]).replace(/\*/g, '%2A'));
+                    }
+                }
+
+                return varsArr.join(',');
+            };
+
+            function castBlocker(value) {
+                if (typeof(value) === 'boolean') {
+                    value = +value;
+                }
+                if (typeof (value) === 'number') {
+                    return value + '';
+                }
+
+                return null;
+            }
+
+            /**
+             * Отправляет счётчик об ошибке
+             *
+             * @param {string} path
+             * @param {Object} vars
+             */
+            rum._sendError = function(path, vars) {
+                rum.send(null, path, rum._createVarsString(vars), null, null, null, null);
+            };
+
+            /**
+             * Отправляет неотловленную ошибку
+             *
+             * @param {ErrorEvent} event
+             */
+            var handleError = function(event) {
+                rum._handleError(event, false);
+            };
+
+            /**
+             * Отправляет ошибку загрузки ресурса
+             * @param {ErrorEvent} event
+             */
+            var handleResourceLoadFailure = function(event) {
+                var target = event.target;
+                if (!target) {
+                    return;
+                }
+
+                var url = target.srcset || target.src;
+                if (!url) {
+                    url = target.href;
+                }
+
+                if (!url) {
+                    return;
+                }
+
+                var tag = target.tagName || 'UNKNOWN';
+
+                rum.logError({
+                    message: tag + ' load error',
+                    additional: {src: url}
+                });
+            };
+
+            /**
+             * Получает stacktrace для unhandledrejection, если включена опция traceUnhandledRejection
+             *
+             * @param {Promise} promise
+             * @returns {String|undefined}
+             */
+            rum._parseTraceablePromiseStack = function() {
+                // имплементация в ./traceUnhandledRejection.js
+            };
+
+            function subscribe() {
+                var errorSettings = rum._errorSettings;
+
+                if (window.addEventListener) {
+                    // обработчик ошибок, которые не были перехвачены через try..catch
+                    window.addEventListener('error', handleError);
+
+                    // обработка ошибок загрузки ресурсов
+                    if (errorSettings.resourceFails) {
+                        window.addEventListener('error', handleResourceLoadFailure, true);
+                    }
+
+                    if ('Promise' in window && errorSettings.unhandledRejection) {
+                        window.addEventListener('unhandledrejection', function (event) {
+                            var reason = event.reason;
+                            var message, stack, additional = {};
+
+                            if (reason) {
+                                if (reason.stack && reason.message) {
+                                    message = reason.message;
+                                    stack = reason.stack;
+                                } else {
+                                    message = String(reason);
+                                    stack = rum._parseTraceablePromiseStack(event.promise);
+
+                                    if (message === '[object Event]') {
+                                        message = 'event.type: ' + reason.type;
+                                    } else if (message === '[object Object]') {
+                                        additional.unhandledObject = reason;
+                                    }
+                                }
+
+                                if (reason.target && reason.target.src) {
+                                    additional.src = reason.target.src;
+                                }
+
+                                handleError({
+                                    message: 'Unhandled rejection: ' + message,
+                                    stack: stack,
+                                    additional: additional
+                                });
+                            }
+                        });
+                    }
+                } else {
+                    // фоллбек для старых браузеров
+                    var oldOnError = window.onerror;
+                    window.onerror = function (message, file, lineNumber, columnNumber, error) {
+                        handleError({
+                            error : error || new Error(message || 'Empty error'),
+                            message : message,
+                            lineno : lineNumber,
+                            colno: columnNumber,
+                            filename : file
+                        });
+
+                        if (oldOnError) {
+                            oldOnError.apply(this, arguments);
+                        }
+                    };
+                }
+            }
+        })(typeof self !== 'undefined' ? self : window, Ya.RumMediaEnhancements);
+
+        (function () {
+
+            (function(rum) {
+                rum.logError = function (params, error, settingsFromError) {
+                    params = params || {};
+
+                    if (typeof error === 'string' || typeof error === 'undefined') {
+                        error = new Error(error);
+                        error.justCreated = true;
+                    }
+
+                    var message = params.message || '',
+                        err = rum._baseNormalizeError(error);
+
+                    if (err.message && !params.ignoreErrorMessage) {
+                        if (message) {
+                            message += '; ';
+                        }
+
+                        message += err.message;
+                    }
+
+                    err.message = message || 'Empty error';
+
+                    var fields = ['service', 'source', 'type', 'block', 'additional', 'level', 'page', 'method', 'sourceMethod', 'coordinates_gp'];
+
+                    for (var i = 0; i < fields.length; i++) {
+                        var name = fields[i];
+
+                        if (params[name]) {
+                            err[name] = params[name];
+                        } else if (error && error[name]) {
+                            err[name] = error[name];
+                        }
+                    }
+
+                    rum._handleError(err, true, settingsFromError);
+                };
+            })(Ya.RumMediaEnhancements);
+
+        }());
+
+        Ya.RumMediaEnhancements.initErrors({
+            project: 'video-translation-scripts',
+            page: location.pathname,
+            reqid: generateUuidV4(),
+            version: "1.49.0.0" ,
+            env: "development" ,
+            platform: PLATFORM,
+            uncaughtException: false,
+        });
+
+        (function (rum, undefined$1) {
+            if (!rum) {
+                throw new Error('RumMediaEnhancements: interface is not included');
+            }
+            if (!rum.enabled) {
+                rum.getSetting = function () {
+                    return '';
+                };
+                rum.getVarsList = function () {
+                    return [];
+                };
+                rum.getResourceTimings = rum.pushConnectionTypeTo = rum.pushTimingTo = rum.normalize = rum.sendCounter =
+                    rum.sendDelta = rum.sendTimeMark = rum.sendResTiming = rum.sendTTI = rum.makeSubPage =
+                        rum.sendHeroElement = rum.onReady = rum.onQuietWindow = function () { };
+                return;
+            }
+            /**
+             * Получить переданные при инициализации RUM параметры как список строк вида 'key=value'.
+             *
+             * @returns {Array<String>}
+             */
+            rum.getVarsList = function () {
+                var vars = rum._vars;
+                return Object.keys(vars).map(function (varName) {
+                    return varName + '=' + encodeURIComponent(vars[varName]).replace(/\*/g, '%2A');
+                });
+            };
+            var PATH_TIME = '690.2096.207'; // tech.perf.time
+            var PATH_DELTA = '690.2096.2877'; // tech.perf.delta
+            var getTime = rum.getTime;
+            var perf = window.performance || {};
+            var pageTiming = perf.timing || {};
+            // хранилище отправленных временных меток
+            var timeMarks = {};
+            var deltaMarks = rum._deltaMarks;
+            var navStart = pageTiming.navigationStart;
+            var commonVars, markCommonVars;
+            updateCommonVars();
+            updateMarkCommonVars();
+            // Времена последнего AJAX-запроса (если был)
+            rum.ajaxStart = 0;
+            rum.ajaxComplete = 0;
+            function updateCommonVars() {
+                commonVars = rum.getVarsList();
+                if (rum.getSetting('sendClientUa')) {
+                    // [ua] User-agent
+                    commonVars.push('1042=' + encodeURIComponent(navigator.userAgent));
+                }
+            }
+            function updateMarkCommonVars() {
+                markCommonVars = commonVars.concat([
+                    '143.2129=' + navStart // page.navigation_start
+                ]);
+            }
+            // Init
+            onReady(main);
+            /**
+             * Возвращает базовые параметры
+             * @returns {Array<String>}
+             * @protected
+             */
+            rum._getCommonVars = function () {
+                return commonVars;
+            };
+            /**
+             * Вызвать функцию, когда страница будет готова
+             * @param {Function} cb
+             */
+            function onReady(cb) {
+                function wrappedCb() {
+                    removeEventListener('DOMContentLoaded', wrappedCb);
+                    removeEventListener('load', wrappedCb);
+                    cb();
+                }
+                if (document.readyState === 'loading') {
+                    addEventListener('DOMContentLoaded', wrappedCb);
+                    addEventListener('load', wrappedCb);
+                }
+                else {
+                    cb();
+                }
+            }
+            function main() {
+                if (!navStart) {
+                    return;
+                }
+                setTimeout(function () {
+                    // Заменяем методы, записывающие данные в массив, на методы, сразу отправляющие данные на бэкэнд
+                    rum.sendTimeMark = sendTimeMark;
+                    rum.timeEnd = timeEnd;
+                });
+            }
+            /**
+             * Отправить счетчик с временной меткой.
+             *
+             * @param {String} counterId - Код BlockStat. ID метки времени
+             * @param {Number} [time] - Время. Если не передано, вычисляется время от начала навигации до момента вызова функции
+             * @param {Boolean} [addPerfMark=true] - Добавлять метку в User Timing или нет, true по умолчанию
+             * @param {Object} [params=null] - Кастомные параметры счетчика. Сюда же можно передать инстанс подстраницы
+             */
+            function sendTimeMark(counterId, time, addPerfMark, params) {
+                if (time === undefined$1) {
+                    time = getTime();
+                }
+                if (addPerfMark === undefined$1 || addPerfMark === true) {
+                    rum.mark(counterId, time);
+                }
+                var vars = getMarkCommonVars(counterId);
+                vars.push('207=' + normalize(time)); // time (время от navigation start)
+                if (!addCustomParamsToVars(vars, params)) {
+                    return;
+                }
+                sendCounter(PATH_TIME, vars);
+                timeMarks[counterId] = timeMarks[counterId] || [];
+                timeMarks[counterId].push(time);
+                var listeners = rum._markListeners[counterId];
+                if (listeners && listeners.length) {
+                    listeners.forEach(function (cb) {
+                        cb(time);
+                    });
+                }
+            }
+            /**
+             * Добавить кастомные параметры в метрики запроса.
+             *
+             * @param {Array} vars - Список с метриками
+             * @param {Object} [params=null] - Кастомные параметры счетчика
+             */
+            function addCustomParamsToVars(vars, params) {
+                if (params) {
+                    // Если в отложенном запуске решили, что счетчик уже не нужен
+                    if (params.isCanceled && params.isCanceled()) {
+                        return false;
+                    }
+                    var key2IdxMap = vars.reduce(function (acc, el, idx) {
+                        if (typeof el === 'string') {
+                            var key = el.split('=')[0];
+                            acc[key] = idx;
+                        }
+                        return acc;
+                    }, {});
+                    Object.keys(params).forEach(function (paramName) {
+                        if (typeof params[paramName] !== 'function') {
+                            // перезаписываем, если уже есть такой параметр
+                            var idx = key2IdxMap[paramName], value = paramName + '=' + params[paramName];
+                            if (idx === undefined$1) {
+                                vars.push(value);
+                            }
+                            else {
+                                vars[idx] = value;
+                            }
+                        }
+                    });
+                }
+                return true;
+            }
+            /**
+             * Отмечает время окончания расчёта дельты и отправляет дельту.
+             *
+             * @param {String} counterId - Код BlockStat. ID метки времени
+             * @param {Object} [params=null] - Кастомные параметры дельты. Сюда же можно передать инстанс подстраницы
+             */
+            function timeEnd(counterId, params) {
+                var deltaTimes = deltaMarks[counterId];
+                if (!deltaTimes || deltaTimes.length === 0) {
+                    return;
+                }
+                deltaTimes.push(getTime(), params);
+                sendDelta(counterId);
+            }
+            /**
+             * Отправить счетчик с дельтой времени.
+             *
+             * @param {String} counterId - Код BlockStat. ID метки времени
+             * @param {Number} [delta] - Точное значение дельты
+             * @param {Object} [params=null] - Кастомные параметры дельты. Сюда же можно передать инстанс подстраницы
+             */
+            function sendDelta(counterId, delta, params) {
+                var deltaTimes = deltaMarks[counterId], deltaStart, deltaEnd, deltaVars;
+                // используем явно заданное значение из дельты
+                if (typeof delta !== 'undefined') {
+                    deltaEnd = rum.getTime();
+                    deltaStart = deltaEnd - delta;
+                }
+                else if (deltaTimes) {
+                    deltaStart = deltaTimes[0];
+                    deltaEnd = deltaTimes[1];
+                    deltaVars = deltaTimes[2];
+                }
+                if (deltaStart === undefined$1 || deltaEnd === undefined$1) {
+                    return;
+                }
+                var vars = getMarkCommonVars(counterId);
+                vars.push('207.2154=' + normalize(deltaStart), // time.start
+                    '207.1428=' + normalize(deltaEnd), // time.end
+                    '2877=' + normalize(deltaEnd - deltaStart) // delta
+                );
+                if (addCustomParamsToVars(vars, params) && addCustomParamsToVars(vars, deltaVars)) {
+                    sendCounter(PATH_DELTA, vars);
+                    delete deltaMarks[counterId];
+                }
+            }
+            function getMarkCommonVars(counterId) {
+                return markCommonVars.concat([
+                    '1701=' + counterId,
+                    rum.ajaxStart && ('1201.2154=' + normalize(rum.ajaxStart)),
+                    rum.ajaxComplete && ('1201.2052=' + normalize(rum.ajaxComplete)) // ajax.success
+                ]);
+            }
+            /**
+             * Подготовить значение к отправке: строку - закодировать, число - пересчитать относительно заданного смещения и
+             * округлить до трёх знаков после запятой.
+             *
+             * @param {String|Number} x
+             * @param {Number} [offset]
+             * @returns {String|Number}
+             */
+            function normalize(x, offset) {
+                return typeof x === 'string' ? encodeURIComponent(x) : Math.round((x - (offset || 0)) * 1000) / 1000;
+            }
+            /**
+             * Отправляет счётчик
+             *
+             * @param {String} path
+             * @param {Array<String>} varsArr
+             */
+            function sendCounter(path, varsArr) {
+                var cdnLocation = encodeURIComponent(window.YaStaticRegion || 'unknown');
+                varsArr.push('-cdn=' + cdnLocation);
+                var vars = varsArr.filter(Boolean).join(',');
+                rum.send(null, path, vars);
+            }
+            // Предоставляем внутренние функции опциональным модулям
+            rum.normalize = normalize;
+            rum.sendCounter = sendCounter;
+            rum.sendDelta = sendDelta;
+            rum.onReady = onReady;
+        })(Ya.RumMediaEnhancements);
+
+        class LoggerCore {
+            static logError(options, originalError) {
+                var _a, _b;
+                (_b = (_a = self.Ya) === null || _a === void 0 ? void 0 : _a.RumMediaEnhancements) === null || _b === void 0 ? void 0 : _b.logError(options, originalError);
+            }
+            static sendTimeMark(counterId) {
+                var _a, _b;
+                (_b = (_a = self.Ya) === null || _a === void 0 ? void 0 : _a.RumMediaEnhancements) === null || _b === void 0 ? void 0 : _b.sendTimeMark(counterId);
+            }
+            static time(counterId) {
+                var _a, _b;
+                (_b = (_a = self.Ya) === null || _a === void 0 ? void 0 : _a.RumMediaEnhancements) === null || _b === void 0 ? void 0 : _b.time(counterId);
+            }
+            static timeEnd(counterId) {
+                var _a, _b;
+                (_b = (_a = self.Ya) === null || _a === void 0 ? void 0 : _a.RumMediaEnhancements) === null || _b === void 0 ? void 0 : _b.timeEnd(counterId);
+            }
+            static sendRaf(counterId) {
+                var _a, _b;
+                (_b = (_a = self.Ya) === null || _a === void 0 ? void 0 : _a.RumMediaEnhancements) === null || _b === void 0 ? void 0 : _b.sendRaf(counterId);
+            }
+        }
+
+        /**
+         * This code receives messages from other scripts
+         * and uses RUM to store data.
+         */
+        window.addEventListener('message', handleMessage);
+        function isLoggerMessageEvent(event) {
+            if (typeof event !== 'object') {
+                return false;
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const data = event.data;
+            if (typeof data !== 'object') {
+                return false;
+            }
+            return 'messageId' in data;
+        }
+        function extractOptionsFromEvent(event) {
+            var _a, _b;
+            const options = event.data.options;
+            (_b = (_a = window.yandex.mediaEnhancements) === null || _a === void 0 ? void 0 : _a.loggerFeatures) === null || _b === void 0 ? void 0 : _b.loggerInTop;
+            if (event.source !== window && options.additional) {
+                options.additional.iframeParentHref = window.location.href;
+            }
+            return options;
+        }
+        function handleMessage(event) {
+            if (!isLoggerMessageEvent(event)) {
+                return;
+            }
+            switch (event.data.messageId) {
+                case LoggerMethodName.LOG_ERROR:
+                    LoggerCore.logError(extractOptionsFromEvent(event), deserializeError(event.data.originalErrorSerialized));
+                    break;
+                case LoggerMethodName.SEND_TIME_MARK:
+                    LoggerCore.sendTimeMark(event.data.counterId);
+                    break;
+                case LoggerMethodName.SEND_RAF:
+                    LoggerCore.sendRaf(event.data.counterId);
+                    break;
+                case LoggerMethodName.TIME:
+                    LoggerCore.time(event.data.counterId);
+                    break;
+                case LoggerMethodName.TIME_END:
+                    LoggerCore.timeEnd(event.data.counterId);
+                    break;
+            }
+        }
+
+    }());
 </script>
 <iframe width="720" height="405" src="https://rutube.ru/play/embed/100e1d3a2d9be22e37d20d71edf1627e" frameBorder="0" allow="clipboard-write; autoplay" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>
 <iframe width="720" height="405" src="https://rutube.ru/play/embed/11bbbec75a2ceb8cf446ad16813c6eec" frameBorder="0" allow="clipboard-write; autoplay" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>
