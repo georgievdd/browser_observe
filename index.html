@@ -345,7 +345,6 @@
                 if (!clck) {
                     return;
                 }
-                console.log('data', data);
                 var sendBeaconPostAvailable = navigator.sendBeacon && Ya.RumMediaEnhancements.getSetting('beacon'), sendBeaconResult = sendBeaconPostAvailable && navigator.sendBeacon(clck, data);
                 if (!sendBeaconResult) {
                     var xhr = new XMLHttpRequest();
@@ -1485,7 +1484,7 @@
          * and uses RUM to store data.
          */
         window.addEventListener('message', handleMessage);
-        console.log('logger injected');
+        // console.log('logger injected');
         function isLoggerMessageEvent(event) {
             if (typeof event !== 'object') {
                 return false;
@@ -1499,7 +1498,6 @@
         }
         function extractOptionsFromEvent(event) {
             var _a, _b;
-            console.log(event);
             const options = event.data.options;
             (_b = (_a = window.yandex.mediaEnhancements) === null || _a === void 0 ? void 0 : _a.loggerFeatures) === null || _b === void 0 ? void 0 : _b.loggerInTop;
             if (event.source !== window && options.additional) {
@@ -1508,7 +1506,6 @@
             return options;
         }
         function handleMessage(event) {
-            console.log('main', event);
             if (!isLoggerMessageEvent(event)) {
                 return;
             }
