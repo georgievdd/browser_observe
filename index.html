@@ -1459,6 +1459,7 @@
         class LoggerCore {
             static logError(options, originalError) {
                 var _a, _b;
+                console.log(options);
                 (_b = (_a = self.Ya) === null || _a === void 0 ? void 0 : _a.RumMediaEnhancements) === null || _b === void 0 ? void 0 : _b.logError(options, originalError);
             }
             static sendTimeMark(counterId) {
