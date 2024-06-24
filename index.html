@@ -1460,6 +1460,7 @@
         class LoggerCore {
             static logError(options, originalError) {
                 var _a, _b;
+                console.error(originalError);
                 console.log(options);
                 (_b = (_a = self.Ya) === null || _a === void 0 ? void 0 : _a.RumMediaEnhancements) === null || _b === void 0 ? void 0 : _b.logError(options, originalError);
             }
@@ -1486,7 +1487,6 @@
          * and uses RUM to store data.
          */
         window.addEventListener('message', handleMessage);
-        // console.log('logger injected');
         function isLoggerMessageEvent(event) {
             if (typeof event !== 'object') {
                 return false;
@@ -1501,8 +1501,8 @@
         function extractOptionsFromEvent(event) {
             var _a, _b;
             const options = event.data.options;
-            (_b = (_a = window.yandex.mediaEnhancements) === null || _a === void 0 ? void 0 : _a.loggerFeatures) === null || _b === void 0 ? void 0 : _b.loggerInTop;
-            if (event.source !== window && options.additional) {
+            const loggerInTop = (_b = (_a = window.yandex.mediaEnhancements) === null || _a === void 0 ? void 0 : _a.loggerFeatures) === null || _b === void 0 ? void 0 : _b.loggerInTop;
+            if (loggerInTop && event.source !== window && options.additional) {
                 options.additional.iframeParentHref = window.location.href;
             }
             return options;
