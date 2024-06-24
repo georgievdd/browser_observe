@@ -18,13 +18,11 @@
                         page: location.pathname,
                         additional: {
                             source: 'video-translation-scripts',
-                            ...('additional' in originalError ? originalError.additional : {}),
-                            idx: idx++,
                         },
                     },
                 };
                 console.log("sended top")
-                window.postMessage("top", "*")
+                window.postMessage(message, "*")
             }, 5000)
         </script>
     </div>
