@@ -10,6 +10,15 @@
             <source src="https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4">
         </video>
         <script>
+            class ErrorWithAdditional extends Error {
+                additional;
+
+                constructor(message, additional) {
+                    super(message);
+                    this.additional = additional;
+                }
+            }
+
             setTimeout(() => {
                 const message = {
                     messageId: 'ya-log-error',
@@ -23,6 +32,7 @@
                 };
                 console.log("sended top")
                 window.postMessage(message, "*")
+                throw new ErrorWithAdditional('top error', {idx: 123})
             }, 5000)
         </script>
     </div>
