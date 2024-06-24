@@ -340,19 +340,18 @@
                 }
             };
             function sendBatchRequest() {
-                var clck = Ya.RumMediaEnhancements.getSetting('clck'); countersBatchData.join('\r\n');
+                var clck = Ya.RumMediaEnhancements.getSetting('clck'), data = countersBatchData.join('\r\n');
                 countersBatchData = [];
                 counterTimerId = null;
                 if (!clck) {
                     return;
                 }
-                // var sendBeaconPostAvailable = navigator.sendBeacon && Ya.RumMediaEnhancements.getSetting('beacon'),
-                //     sendBeaconResult = sendBeaconPostAvailable && navigator.sendBeacon(clck, data);
-                // if (!sendBeaconResult) {
-                //     var xhr = new XMLHttpRequest();
-                //     xhr.open('POST', clck);
-                //     xhr.send(data);
-                // }
+                var sendBeaconPostAvailable = navigator.sendBeacon && Ya.RumMediaEnhancements.getSetting('beacon'), sendBeaconResult = sendBeaconPostAvailable && navigator.sendBeacon(clck, data);
+                if (!sendBeaconResult) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', clck);
+                    xhr.send(data);
+                }
             }
         }());
 
@@ -1460,8 +1459,7 @@
 
         class LoggerCore {
             static logError(options, originalError) {
-                console.error(originalError);
-                console.log(options);
+                console.log(originalError);
                 // self.Ya?.RumMediaEnhancements?.logError(options, originalError);
             }
             static sendTimeMark(counterId) {
