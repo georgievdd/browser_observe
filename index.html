@@ -11,7 +11,18 @@
         </video>
         <script>
             setTimeout(() => {
-
+                const message = {
+                    messageId: 'ya-log-error',
+                    originalErrorSerialized: 'Error',
+                    options: {
+                        page: location.pathname,
+                        additional: {
+                            source: 'video-translation-scripts',
+                            ...('additional' in originalError ? originalError.additional : {}),
+                            idx: idx++,
+                        },
+                    },
+                };
                 console.log("sended top")
                 window.postMessage("top", "*")
             }, 5000)
